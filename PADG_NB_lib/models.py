@@ -1,27 +1,23 @@
-import requests
 from bs4 import BeautifulSoup
+import requests
 
-def get_coordinates_from_wikipedia(city: str):
+def get_coordinates_from_wikipedia(city):
     try:
-        url = f"https://pl.wikipedia.org/wiki/{city}"
-        headers = {"User-Agent": "Mozilla/5.0"}
-        response = requests.get(url, headers=headers, timeout=5)
+        url = f'https://pl.wikipedia.org/wiki/{city}'
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        response = requests.get(url, headers=headers)
+        soup = BeautifulSoup(response.text, 'html.parser')
+        lat_elem = soup.select('.latitude')
+        lon_elem = soup.select('.longitude')
 
-        html = BeautifulSoup(response.text, "html.parser")
+        if not lat_elem or not lon_elem:
+            return None
 
-        lat = html.select_one(".latitude")
-        lon = html.select_one(".longitude")
-
-        if not lat or not lon:
-            raise ValueError("Brak koordynatów")
-
-        latitude = float(lat.text.replace(",", "."))
-        longitude = float(lon.text.replace(",", "."))
-
-        return [latitude, longitude]
-
+        lat = float(lat_elem[-1].text.replace(",", "."))
+        lon = float(lon_elem[-1].text.replace(",", "."))
+        return [lat, lon]
     except Exception:
-        return [52.2297, 21.0122]
+        return None
 
 
 class Clinic:
