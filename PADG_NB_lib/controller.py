@@ -1,104 +1,74 @@
-from PADG_NB_lib.model import User
-import psycopg2
+from PADG_NB_lib.models import Clinic
 
 class Controller:
     def __init__(self, view, map_widget):
         self.view = view
         self.map_widget = map_widget
-        self.users = []
+        self.clinics = []
 
-    def add_user(self):
-        db_engine = psycopg2.connect(
-            user="postgres",
-            database="postgres",
-            password="postgres",
-            port="5432",
-            host="localhost"
-        )
-        cursor = db_engine.cursor()
+    def show_clinics(self):
+        self.view.list_box_clinics.delete(0, "end")
+        for idx, clinic in enumerate(self.clinics):
+            self.view.list_box_clinics.insert(idx, f"{clinic.name} ({clinic.city})")
 
-        name = self.view.entry_name.get()
-        location = self.view.entry_lokalizacja.get()
-        posts = int(self.view.entry_posty.get())
-        img_url = self.view.entry_img_url.get()
+    def add_clinic(self):
+        name = self.view.entry_clinic_name.get()
+        city = self.view.entry_clinic_city.get()
+        clinic = Clinic(name, city)
+        self.clinics.append(clinic)
 
-        user = User(name, location, posts, img_url, self.map_widget)
-        self.users.append(user)
+        clinic.marker = self.map_widget.set_marker(clinic.coords[0], clinic.coords[1], text=clinic.name)
 
-        SQL = f"INSERT INTO public.users(name, location, posts, img_url, geometry) VALUES ('{name}', '{location}', {posts}, '{img_url}', 'SRID=4326;POINT({user.coords[0]} {user.coords[1]})');"
+        self.show_clinics()
+        self.clear_clinic_entries()
 
-        self.user_info()
+    def delete_clinic(self):
+        i = self.view.list_box_clinics.curselection()
+        if not i:
+            return
+        index = i[0]
 
-        self.view.entry_name.delete(0, "end")
-        self.view.entry_lokalizacja.delete(0, "end")
-        self.view.entry_posty.delete(0, "end")
-        self.view.entry_img_url.delete(0, "end")
-        self.view.entry_name.focus()
+        if hasattr(self.clinics[index], "marker"):
+            self.clinics[index].marker.delete()
 
-        cursor.execute(SQL)
-        db_engine.commit()
+        self.clinics.pop(index)
+        self.show_clinics()
 
-    def user_info(self):
-        self.view.list_box_lista_obiektow.delete(0, "end")
-        for idx, user in enumerate(self.users):
-            self.view.list_box_lista_obiektow.insert(
-                idx, f"{user.name} {user.location} {user.posts} posty"
-            )
+    def edit_clinic(self):
+        i = self.view.list_box_clinics.curselection()
+        if not i:
+            return
+        index = i[0]
+        clinic = self.clinics[index]
 
-    def delete_user(self):
-        i = self.view.list_box_lista_obiektow.index("active")
-        self.users[i].marker.delete()
-        self.users.pop(i)
-        self.user_info()
+        self.view.entry_clinic_name.delete(0, "end")
+        self.view.entry_clinic_name.insert(0, clinic.name)
+        self.view.entry_clinic_city.delete(0, "end")
+        self.view.entry_clinic_city.insert(0, clinic.city)
 
-    def user_details(self):
-        i = self.view.list_box_lista_obiektow.index("active")
-
-        self.view.label_imie_szczegoly_obiektu_wartosc.config(text=self.users[i].name)
-        self.view.label_lokalizacja_szczegoly_obiektu_wartosc.config(text=self.users[i].location)
-        self.view.label_posty_szczegoly_obiektu_wartosc.config(text=self.users[i].posts)
-
-        self.map_widget.set_position(
-            self.users[i].coords[0],
-            self.users[i].coords[1]
-        )
-        self.map_widget.set_zoom(14)
-
-    def edit_user(self):
-        i = self.view.list_box_lista_obiektow.index("active")
-
-        self.view.entry_name.insert(0, self.users[i].name)
-        self.view.entry_lokalizacja.insert(0, self.users[i].location)
-        self.view.entry_posty.insert(0, self.users[i].posts)
-        self.view.entry_img_url.insert(0, self.users[i].img_url)
-
-        self.view.button_dodaj_obiekt.config(
+        self.view.button_add_clinic.config(
             text="Zapisz zmiany",
-            command=lambda: self.update_user(i)
+            command=lambda: self.update_clinic(index)
         )
 
-    def update_user(self, i):
-        self.users[i].name = self.view.entry_name.get()
-        self.users[i].location = self.view.entry_lokalizacja.get()
-        self.users[i].posts = self.view.entry_posty.get()
-        self.users[i].img_url = self.view.entry_img_url.get()
-        self.users[i].coords = self.users[i].get_coordinates()
+    def update_clinic(self, index):
+        clinic = self.clinics[index]
+        clinic.name = self.view.entry_clinic_name.get()
+        clinic.city = self.view.entry_clinic_city.get()
+        clinic.coords = clinic.get_coordinates()
+        if hasattr(clinic, "marker"):
+            clinic.marker.set_position(clinic.coords[0], clinic.coords[1])
+            clinic.marker.set_text(clinic.name)
 
-        self.users[i].marker.set_position(
-            self.users[i].coords[0],
-            self.users[i].coords[1]
-        )
-        self.users[i].marker.set_text(text=self.users[i].name)
+        self.show_clinics()
+        self.clear_clinic_entries()
 
-        self.user_info()
-
-        self.view.button_dodaj_obiekt.config(
-            text="Dodaj obiekt",
-            command=self.add_user
+        self.view.button_add_clinic.config(
+            text="Dodaj przychodnię",
+            command=self.add_clinic
         )
 
-        self.view.entry_name.delete(0, "end")
-        self.view.entry_lokalizacja.delete(0, "end")
-        self.view.entry_posty.delete(0, "end")
-        self.view.entry_img_url.delete(0, "end")
-        self.view.entry_name.focus()
+    def clear_clinic_entries(self):
+        self.view.entry_clinic_name.delete(0, "end")
+        self.view.entry_clinic_city.delete(0, "end")
+        self.view.entry_clinic_name.focus()
