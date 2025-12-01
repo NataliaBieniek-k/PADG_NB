@@ -19,9 +19,13 @@ class Clinic:
     def __init__(self, name: str, city: str):
         self.name = name
         self.city = city
-        self.coords = get_coordinates_from_wikipedia(city)
+        self.coords = self.get_coordinates()
         self.doctors = []
         self.clients = []
+
+    def get_coordinates(self):
+        return get_coordinates_from_wikipedia(self.city)
+
 
     def add_doctor(self, doctor):
         self.doctors.append(doctor)
@@ -37,7 +41,7 @@ class Doctor:
         self.last_name = last_name
         self.clinic = None
         self.patients = []
-        self.coords = get_coordinates_from_wikipedia(city)
+        self.coords = self.get_coordinates()
 
     def add_patient(self, patient):
         self.patients.append(patient)
@@ -49,11 +53,11 @@ class Patient:
         self.first_name = first_name
         self.last_name = last_name
         self.doctor = None
-        self.coords = get_coordinates_from_wikipedia(city)
+        self.coords = self.get_coordinates()
 
 
 class Client:
     def __init__(self, name: str, city: str):
         self.name = name
         self.clinic = None
-        self.coords = get_coordinates_from_wikipedia(city)
+        self.coords = self.get_coordinates()
