@@ -69,7 +69,7 @@ def start_gui():
 
     Label(ramka_doctors, text="Lekarze", font=("Arial", 12, "bold")).grid(row=0, column=0, columnspan=2)
 
-    view.list_box_doctors = Listbox(ramka_doctors, width=35, height=10)
+    view.list_box_doctors = Listbox(ramka_doctors, width=35, height=10, exportselection=False)
     view.list_box_doctors.grid(row=1, column=0, columnspan=2, pady=(0, 5))
     view.list_box_doctors.bind("<<ListboxSelect>>", controller.show_patients)
 
@@ -89,8 +89,9 @@ def start_gui():
     Label(ramka_patients, text="Pacjenci wybranego lekarza", font=("Arial", 12, "bold")).grid(row=0, column=0,
                                                                                               columnspan=2)
 
-    view.list_box_patients = Listbox(ramka_patients, width=35, height=10)
+    view.list_box_patients = Listbox(ramka_patients, width=35, height=10, exportselection=False)
     view.list_box_patients.grid(row=1, column=0, columnspan=2, pady=(0, 5))
+    view.list_box_patients.bind("<<ListboxSelect>>", controller.on_patient_of_doctor_select)
 
     Button(ramka_patients, text="Zmień lekarza / Usuń z lekarza",
            command=controller.show_change_patient_doctor_dialog).grid(row=2, column=0, columnspan=2, pady=5)
@@ -100,7 +101,7 @@ def start_gui():
 
     Label(ramka_all_patients, text="Wszyscy pacjenci", font=("Arial", 12, "bold")).grid(row=0, column=0, columnspan=2)
 
-    view.list_box_all_patients = Listbox(ramka_all_patients, width=35, height=10)
+    view.list_box_all_patients = Listbox(ramka_all_patients, width=35, height=10, exportselection=False)
     view.list_box_all_patients.grid(row=1, column=0, columnspan=2, pady=(0, 5))
     view.list_box_all_patients.bind("<<ListboxSelect>>", controller.on_patient_select)
 
@@ -121,7 +122,7 @@ def start_gui():
     Label(ramka_all_patients, text="Przypisz do lekarza", font=("Arial", 10, "bold")).grid(row=3, column=0,
                                                                                            columnspan=2, pady=(10, 5))
 
-    view.list_box_doctors_for_assign = Listbox(ramka_all_patients, width=30, height=5)
+    view.list_box_doctors_for_assign = Listbox(ramka_all_patients, width=30, height=5, exportselection=False)
     view.list_box_doctors_for_assign.grid(row=4, column=0, columnspan=2)
     view.list_box_doctors_for_assign.bind("<<ListboxSelect>>", controller.on_doctor_select)
 

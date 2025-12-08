@@ -558,6 +558,17 @@ class Controller:
         messagebox.showinfo("Sukces",
                             f"Pacjent {patient.first_name} {patient.last_name} został przypisany do lekarza {doctor.first_name} {doctor.last_name}")
 
+    def on_patient_of_doctor_select(self, event):
+        sel = self.view.list_box_patients.curselection()
+        if sel:
+            sel_doc = self.view.list_box_doctors.curselection()
+            if sel_doc:
+                doctor = self.doctors[sel_doc[0]]
+                patient = doctor.patients[sel[0]]
+                if patient.coords:
+                    self.map_widget.set_position(*patient.coords)
+                    self.map_widget.set_zoom(13)
+
     def show_change_patient_doctor_dialog(self):
         sel = self.view.list_box_patients.curselection()
 
@@ -567,6 +578,7 @@ class Controller:
 
         sel_doc = self.view.list_box_doctors.curselection()
         if not sel_doc:
+            messagebox.showwarning("Ostrzeżenie", "Najpierw wybierz lekarza z listy!")
             return
 
         current_doctor = self.doctors[sel_doc[0]]
@@ -574,7 +586,7 @@ class Controller:
 
         dialog = Toplevel()
         dialog.title("Zmień lekarza pacjenta")
-        dialog.geometry("350x250")
+        dialog.geometry("400x300")
         dialog.resizable(False, False)
 
         dialog.transient()
@@ -595,13 +607,21 @@ class Controller:
         Label(frame, text="Wybierz nowego lekarza:", font=("Arial", 9, "bold")).grid(row=2, column=0, columnspan=2,
                                                                                      pady=(10, 5))
 
-        from tkinter import Listbox, SINGLE
-        doctors_listbox = Listbox(frame, height=5, selectmode=SINGLE)
-        doctors_listbox.grid(row=3, column=0, columnspan=2, pady=5)
+        from tkinter import Listbox, SINGLE, Scrollbar, VERTICAL
 
-        for d in self.doctors:
-            if d != current_doctor:
-                doctors_listbox.insert("end", str(d))
+        listbox_frame = Frame(frame)
+        listbox_frame.grid(row=3, column=0, columnspan=2, pady=5)
+
+        scrollbar = Scrollbar(listbox_frame, orient=VERTICAL)
+        doctors_listbox = Listbox(listbox_frame, height=6, selectmode=SINGLE, width=35, yscrollcommand=scrollbar.set)
+        scrollbar.config(command=doctors_listbox.yview)
+
+        doctors_listbox.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        available_doctors = [d for d in self.doctors if d != current_doctor]
+        for d in available_doctors:
+            doctors_listbox.insert("end", str(d))
 
         def change_doctor():
             sel_new = doctors_listbox.curselection()
@@ -609,14 +629,6 @@ class Controller:
                 messagebox.showwarning("Ostrzeżenie", "Wybierz nowego lekarza!")
                 return
 
-            new_doctor_idx = sel_new[0]
-            if new_doctor_idx >= len(self.doctors) - 1:
-                new_doctor_idx += 1
-
-            new_doctor = self.doctors[new_doctor_idx] if self.doctors[new_doctor_idx] != current_doctor else \
-            self.doctors[new_doctor_idx + 1]
-
-            available_doctors = [d for d in self.doctors if d != current_doctor]
             new_doctor = available_doctors[sel_new[0]]
 
             current_doctor.patients.remove(patient)
