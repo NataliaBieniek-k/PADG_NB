@@ -10,6 +10,7 @@ class Controller:
         self.clinics = []
         self.doctors = []
         self.free_patients = []
+        self.clients = []
         self.selected_patient_index = None
         self.selected_doctor_index = None
 

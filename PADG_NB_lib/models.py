@@ -89,3 +89,6 @@ class Client:
 
     def get_coordinates(self):
         return get_coordinates_from_wikipedia(self.city)
+
+    def __str__(self):
+        return f"{self.name} ({self.city})"
