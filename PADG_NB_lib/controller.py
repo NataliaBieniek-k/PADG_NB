@@ -350,6 +350,10 @@ class Controller:
 
         doctor = self.doctors[sel[0]]
 
+        if doctor.coords:
+            self.map_widget.set_position(*doctor.coords)
+            self.map_widget.set_zoom(13)
+
         for i, p in enumerate(doctor.patients):
             self.view.list_box_patients.insert(i, str(p))
 
