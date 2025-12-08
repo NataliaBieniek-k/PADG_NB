@@ -1,6 +1,7 @@
 from bs4 import BeautifulSoup
 import requests
 
+
 def get_coordinates_from_wikipedia(city):
     try:
         url = f'https://pl.wikipedia.org/wiki/{city}'
@@ -27,6 +28,7 @@ class Clinic:
         self.coords = self.get_coordinates()
         self.doctors = []
         self.clients = []
+        self.marker = None
 
     def get_coordinates(self):
         return get_coordinates_from_wikipedia(self.city)
@@ -48,6 +50,7 @@ class Doctor:
         self.clinic = None
         self.patients = []
         self.coords = self.get_coordinates()
+        self.marker = None
 
     def get_coordinates(self):
         return get_coordinates_from_wikipedia(self.city)
@@ -67,9 +70,13 @@ class Patient:
         self.city = city
         self.doctor = None
         self.coords = self.get_coordinates()
+        self.marker = None
 
     def get_coordinates(self):
         return get_coordinates_from_wikipedia(self.city)
+
+    def __str__(self):
+        return f"{self.first_name} {self.last_name} ({self.city})"
 
 
 class Client:
@@ -78,6 +85,7 @@ class Client:
         self.city = city
         self.clinic = None
         self.coords = self.get_coordinates()
+        self.marker = None
 
     def get_coordinates(self):
         return get_coordinates_from_wikipedia(self.city)
