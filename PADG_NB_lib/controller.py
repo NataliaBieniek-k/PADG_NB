@@ -6,227 +6,86 @@ class Controller:
     def __init__(self, view, map_widget):
         self.view = view
         self.map_widget = map_widget
-        self.clinics = []
-        self.doctors=  []
 
+        self.clinics = []
+        self.doctors = []
+        self.free_patients = []      # GLOBALNA LISTA PACJENTÓW
+
+    # ================================
+    # PRZYCHODNIE
+    # ================================
     def show_clinics(self):
         self.view.list_box_clinics.delete(0, "end")
-        for idx, clinic in enumerate(self.clinics):
-            self.view.list_box_clinics.insert(idx, f"{clinic.name} ({clinic.city})")
+        for i, c in enumerate(self.clinics):
+            self.view.list_box_clinics.insert(i, f"{c.name} ({c.city})")
 
     def show_clinic_details(self, event=None):
-        selection = self.view.list_box_clinics.curselection()
-
-        if not selection:
+        sel = self.view.list_box_clinics.curselection()
+        if not sel:
             return
 
-        index = selection[0]
-        clinic = self.clinics[index]
+        c = self.clinics[sel[0]]
 
-        self.selected_index = index
+        self.view.label_clinic_name_value.config(text=c.name)
+        self.view.label_clinic_city_value.config(text=c.city)
 
-        self.view.label_clinic_name_value.config(text=clinic.name)
-        self.view.label_clinic_city_value.config(text=clinic.city)
-
-        self.map_widget.set_position(
-            clinic.coords[0],
-            clinic.coords[1]
-        )
-        self.map_widget.set_zoom(14)
+        if c.coords:
+            self.map_widget.set_position(*c.coords)
+            self.map_widget.set_zoom(13)
 
     def add_clinic(self):
-        name = self.view.entry_clinic_name.get()
-        city = self.view.entry_clinic_city.get()
-
-        clinic = Clinic(name, city)
-
-        if clinic.coords is None:
-            messagebox.showerror(
-                "Błąd lokalizacji",
-                f"Nie znaleziono miasta: {city}"
-            )
-            return
-
-        self.clinics.append(clinic)
-
-        clinic.marker = self.map_widget.set_marker(
-            clinic.coords[0],
-            clinic.coords[1],
-            text=clinic.name
+        c = Clinic(
+            self.view.entry_clinic_name.get(),
+            self.view.entry_clinic_city.get()
         )
 
-        self.show_clinics()
-        self.clear_clinic_entries()
-
-    def delete_clinic(self):
-        i = self.view.list_box_clinics.curselection()
-        if not i:
+        if c.coords is None:
+            messagebox.showerror("Błąd", "Nie znaleziono miasta")
             return
-        index = i[0]
 
-        if hasattr(self.clinics[index], "marker"):
-            self.clinics[index].marker.delete()
+        self.clinics.append(c)
 
-        self.clinics.pop(index)
+        c.marker = self.map_widget.set_marker(*c.coords, text=c.name)
         self.show_clinics()
-
-    def edit_clinic(self):
-        i = self.view.list_box_clinics.curselection()
-        if not i:
-            return
-        index = i[0]
-        clinic = self.clinics[index]
 
         self.view.entry_clinic_name.delete(0, "end")
-        self.view.entry_clinic_name.insert(0, clinic.name)
         self.view.entry_clinic_city.delete(0, "end")
-        self.view.entry_clinic_city.insert(0, clinic.city)
 
-        self.view.button_add_clinic.config(
-            text="Zapisz zmiany",
-            command=lambda: self.update_clinic(index)
-        )
-
-    def update_clinic(self, index):
-        clinic = self.clinics[index]
-
-        name = self.view.entry_clinic_name.get()
-        city = self.view.entry_clinic_city.get()
-
-        coords = get_coordinates_from_wikipedia(city)
-        if coords is None:
-            from tkinter import messagebox
-            messagebox.showerror(
-                "Błąd lokalizacji",
-                f"Nie znaleziono miasta: {city}"
-            )
-            return
-
-        clinic.name = name
-        clinic.city = city
-        clinic.coords = coords
-
-        if hasattr(clinic, "marker"):
-            clinic.marker.set_position(coords[0], coords[1])
-            clinic.marker.set_text(name)
-
-        self.show_clinics()
-        self.clear_clinic_entries()
-
-        self.view.button_add_clinic.config(
-            text="Dodaj przychodnię",
-            command=self.add_clinic
-        )
-
-    def clear_clinic_entries(self):
-        self.view.entry_clinic_name.delete(0, "end")
-        self.view.entry_clinic_city.delete(0, "end")
-        self.view.entry_clinic_name.focus()
-
-
-
+    # ================================
+    # LEKARZE
+    # ================================
     def show_doctors(self):
         self.view.list_box_doctors.delete(0, "end")
-        for idx, doctor in enumerate(self.doctors):
-            self.view.list_box_doctors.insert(idx, f"{doctor.first_name} {doctor.last_name} ({doctor.city})")
 
-    def show_doctor_details(self, event=None):
-        selection = self.view.list_box_doctors.curselection()
-        if not selection:
-            return
+        for i, d in enumerate(self.doctors):
+            self.view.list_box_doctors.insert(i, str(d))
 
-        index = selection[0]
-        doctor = self.doctors[index]
-        self.selected_doctor_index = index
-
-        self.view.label_doctor_first_name_value.config(text=doctor.first_name)
-        self.view.label_doctor_last_name_value.config(text=doctor.last_name)
-        self.view.label_doctor_city_value.config(text=doctor.city)
-
-        if doctor.coords:
-            self.map_widget.set_position(doctor.coords[0], doctor.coords[1])
-            self.map_widget.set_zoom(14)
+        # Aktualizacja combo do przypisywania pacjentów
+        self.show_doctors_for_assign()
 
     def add_doctor(self):
-        first_name = self.view.entry_doctor_first_name.get()
-        last_name = self.view.entry_doctor_last_name.get()
-        city = self.view.entry_doctor_city.get()
-
-        doctor = Doctor(first_name, last_name, city)
-        if doctor.coords is None:
-            messagebox.showerror("Błąd lokalizacji", f"Nie znaleziono miasta: {city}")
-            return
-
-        self.doctors.append(doctor)
-
-
-        doctor.marker = self.map_widget.set_marker(
-            doctor.coords[0], doctor.coords[1], text=f"{first_name} {last_name}"
+        d = Doctor(
+            self.view.entry_doctor_first_name.get(),
+            self.view.entry_doctor_last_name.get(),
+            self.view.entry_doctor_city.get()
         )
 
-        self.show_doctors()
-        self.clear_doctor_entries()
-
-    def edit_doctor(self):
-        i = self.view.list_box_doctors.curselection()
-        if not i:
-            return
-        index = i[0]
-        doctor = self.doctors[index]
-
-        self.view.entry_doctor_first_name.delete(0, "end")
-        self.view.entry_doctor_first_name.insert(0, doctor.first_name)
-        self.view.entry_doctor_last_name.delete(0, "end")
-        self.view.entry_doctor_last_name.insert(0, doctor.last_name)
-        self.view.entry_doctor_city.delete(0, "end")
-        self.view.entry_doctor_city.insert(0, doctor.city)
-
-        self.view.button_add_doctor.config(text="Zapisz zmiany", command=lambda: self.update_doctor(index))
-
-    def update_doctor(self, index):
-        doctor = self.doctors[index]
-
-        first_name = self.view.entry_doctor_first_name.get()
-        last_name = self.view.entry_doctor_last_name.get()
-        city = self.view.entry_doctor_city.get()
-
-        coords = get_coordinates_from_wikipedia(city)
-        if coords is None:
-            messagebox.showerror("Błąd lokalizacji", f"Nie znaleziono miasta: {city}")
+        if d.coords is None:
+            messagebox.showerror("Błąd", "Nie znaleziono miasta")
             return
 
-        doctor.first_name = first_name
-        doctor.last_name = last_name
-        doctor.city = city
-        doctor.coords = coords
-
-        if hasattr(doctor, "marker"):
-            doctor.marker.set_position(coords[0], coords[1])
-            doctor.marker.set_text(f"{first_name} {last_name}")
+        self.doctors.append(d)
+        d.marker = self.map_widget.set_marker(*d.coords, text=str(d))
 
         self.show_doctors()
-        self.clear_doctor_entries()
 
-        self.view.button_add_doctor.config(text="Dodaj lekarza", command=self.add_doctor)
-
-    def delete_doctor(self):
-        i = self.view.list_box_doctors.curselection()
-        if not i:
-            return
-        index = i[0]
-
-        if hasattr(self.doctors[index], "marker"):
-            self.doctors[index].marker.delete()
-
-        self.doctors.pop(index)
-        self.show_doctors()
-
-    def clear_doctor_entries(self):
         self.view.entry_doctor_first_name.delete(0, "end")
         self.view.entry_doctor_last_name.delete(0, "end")
         self.view.entry_doctor_city.delete(0, "end")
-        self.view.entry_doctor_first_name.focus()
 
+    # ================================
+    # PACJENCI PRZYPISANI DO LEKARZA
+    # ================================
     def show_patients(self, event=None):
         self.view.list_box_patients.delete(0, "end")
 
@@ -234,125 +93,60 @@ class Controller:
         if not sel:
             return
 
-        index = sel[0]
-        doctor = self.doctors[index]
-
-        for i, p in enumerate(doctor.patients):
-            self.view.list_box_patients.insert(
-                i,
-                f"{p.first_name} {p.last_name} ({p.city})"
-            )
-
-    def add_patient(self):
-        sel = self.view.list_box_doctors.curselection()
-        if not sel:
-            messagebox.showerror("Błąd", "Wybierz lekarza")
-            return
-
         doctor = self.doctors[sel[0]]
 
-        fn = self.view.entry_patient_first_name.get()
-        ln = self.view.entry_patient_last_name.get()
-        city = self.view.entry_patient_city.get()
+        for i, p in enumerate(doctor.patients):
+            self.view.list_box_patients.insert(i, str(p))
 
-        p = Patient(fn, ln, city)
+    # ================================
+    # GLOBALNA LISTA PACJENTÓW
+    # ================================
+    def show_all_patients(self):
+        self.view.list_box_all_patients.delete(0, "end")
+
+        for i, p in enumerate(self.free_patients):
+            self.view.list_box_all_patients.insert(i, str(p))
+
+        self.show_doctors_for_assign()
+
+    def show_doctors_for_assign(self):
+        self.view.list_box_doctors_for_assign.delete(0, "end")
+
+        for i, d in enumerate(self.doctors):
+            self.view.list_box_doctors_for_assign.insert(i, str(d))
+
+    def add_patient_global(self):
+        p = Patient(
+            self.view.entry_all_patient_first_name.get(),
+            self.view.entry_all_patient_last_name.get(),
+            self.view.entry_all_patient_city.get()
+        )
 
         if p.coords is None:
-            messagebox.showerror("Błąd", f"Nie znaleziono miasta: {city}")
+            messagebox.showerror("Błąd", "Nie znaleziono miasta")
             return
 
-        doctor.add_patient(p)
+        self.free_patients.append(p)
+        p.marker = self.map_widget.set_marker(*p.coords, text=str(p))
 
-        p.marker = self.map_widget.set_marker(
-            p.coords[0], p.coords[1],
-            text=f"{fn} {ln}"
-        )
+        self.show_all_patients()
 
-        self.show_patients()
-        self.clear_patient_entries()
+        self.view.entry_all_patient_first_name.delete(0, "end")
+        self.view.entry_all_patient_last_name.delete(0, "end")
+        self.view.entry_all_patient_city.delete(0, "end")
 
-    def delete_patient(self):
-        sel_d = self.view.list_box_doctors.curselection()
-        sel_p = self.view.list_box_patients.curselection()
+    def assign_patient_to_doctor(self):
+        sel_p = self.view.list_box_all_patients.curselection()
+        sel_d = self.view.list_box_doctors_for_assign.curselection()
 
-        if not sel_d or not sel_p:
+        if not sel_p or not sel_d:
+            messagebox.showerror("Błąd", "Zaznacz pacjenta i lekarza")
             return
 
+        patient = self.free_patients.pop(sel_p[0])
         doctor = self.doctors[sel_d[0]]
-        idx = sel_p[0]
 
-        patient = doctor.patients[idx]
+        doctor.add_patient(patient)
 
-        if hasattr(patient, "marker"):
-            patient.marker.delete()
-
-        doctor.patients.pop(idx)
-
+        self.show_all_patients()
         self.show_patients()
-
-    def edit_patient(self):
-        sel_d = self.view.list_box_doctors.curselection()
-        sel_p = self.view.list_box_patients.curselection()
-
-        if not sel_d or not sel_p:
-            return
-
-        self.edit_patient_index = sel_p[0]
-
-        doctor = self.doctors[sel_d[0]]
-        p = doctor.patients[self.edit_patient_index]
-
-        self.view.entry_patient_first_name.delete(0, "end")
-        self.view.entry_patient_first_name.insert(0, p.first_name)
-
-        self.view.entry_patient_last_name.delete(0, "end")
-        self.view.entry_patient_last_name.insert(0, p.last_name)
-
-        self.view.entry_patient_city.delete(0, "end")
-        self.view.entry_patient_city.insert(0, p.city)
-
-        self.view.button_add_patient.config(
-            text="Zapisz zmiany",
-            command=self.update_patient
-        )
-
-    def update_patient(self):
-        sel_d = self.view.list_box_doctors.curselection()
-        if not sel_d:
-            return
-
-        doctor = self.doctors[sel_d[0]]
-        p = doctor.patients[self.edit_patient_index]
-
-        fn = self.view.entry_patient_first_name.get()
-        ln = self.view.entry_patient_last_name.get()
-        city = self.view.entry_patient_city.get()
-
-        coords = get_coordinates_from_wikipedia(city)
-
-        if coords is None:
-            messagebox.showerror("Błąd", f"Nie znaleziono miasta: {city}")
-            return
-
-        p.first_name = fn
-        p.last_name = ln
-        p.city = city
-        p.coords = coords
-
-        p.marker.set_position(coords[0], coords[1])
-        p.marker.set_text(f"{fn} {ln}")
-
-        self.view.button_add_patient.config(
-            text="Dodaj pacjenta",
-            command=self.add_patient
-        )
-
-        self.show_patients()
-        self.clear_patient_entries()
-
-    def clear_patient_entries(self):
-        self.view.entry_patient_first_name.delete(0, "end")
-        self.view.entry_patient_last_name.delete(0, "end")
-        self.view.entry_patient_city.delete(0, "end")
-
-
