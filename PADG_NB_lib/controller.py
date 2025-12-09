@@ -365,8 +365,6 @@ class Controller:
             display_text = f"{p.first_name} {p.last_name} ({p.city})"
             self.view.list_box_all_patients.insert(i, display_text)
 
-        self.show_doctors_for_assign()
-
     def show_doctors_for_assign(self):
         self.view.list_box_doctors_for_assign.delete(0, "end")
 
@@ -431,6 +429,7 @@ class Controller:
             p.marker = self.map_widget.set_marker(*p.coords, text=f"{p.first_name} {p.last_name}")
 
             self.show_all_patients()
+            self.show_doctors_for_assign()
             dialog.destroy()
             messagebox.showinfo("Sukces", "Pacjent został dodany!")
 
@@ -538,6 +537,7 @@ class Controller:
             self.free_patients.pop(sel[0])
 
             self.show_all_patients()
+            self.show_doctors_for_assign()
             messagebox.showinfo("Sukces", "Pacjent został usunięty!")
 
     def assign_patient_to_doctor(self):
@@ -651,6 +651,7 @@ class Controller:
 
             self.show_patients()
             self.show_all_patients()
+            self.show_doctors_for_assign()
             dialog.destroy()
             messagebox.showinfo("Sukces", "Pacjent został przeniesiony do listy głównej!")
 
@@ -658,3 +659,157 @@ class Controller:
             row=4, column=0, pady=15, padx=5)
         Button(frame, text="Usuń z lekarza", command=remove_from_doctor, width=15).grid(
             row=4, column=1, pady=15, padx=5)
+
+    def show_clients(self):
+        self.view.list_box_clients.delete(0, "end")
+
+        for i, c in enumerate(self.clients):
+            self.view.list_box_clients.insert(i, f"{c.name} ({c.city})")
+
+    def on_client_select(self, event):
+        sel = self.view.list_box_clients.curselection()
+        if sel:
+            client = self.clients[sel[0]]
+            if client.coords:
+                self.map_widget.set_position(*client.coords)
+                self.map_widget.set_zoom(13)
+
+    def show_add_client_dialog(self):
+        dialog = Toplevel()
+        dialog.title("Dodaj klienta")
+        dialog.geometry("350x150")
+        dialog.resizable(False, False)
+
+        dialog.transient()
+        dialog.grab_set()
+
+        frame = Frame(dialog, padx=20, pady=20)
+        frame.pack(fill="both", expand=True)
+
+        Label(frame, text="Nazwa:").grid(row=0, column=0, sticky="w", pady=5)
+        entry_name = Entry(frame, width=25)
+        entry_name.grid(row=0, column=1, pady=5, padx=5)
+        entry_name.focus()
+
+        Label(frame, text="Miasto:").grid(row=1, column=0, sticky="w", pady=5)
+        entry_city = Entry(frame, width=25)
+        entry_city.grid(row=1, column=1, pady=5, padx=5)
+
+        def save_client():
+            name = entry_name.get().strip()
+            city = entry_city.get().strip()
+
+            if not name or not city:
+                messagebox.showwarning("Ostrzeżenie", "Wypełnij wszystkie pola!")
+                return
+
+            c = Client(name, city)
+
+            if c.coords is None:
+                messagebox.showerror("Błąd", "Nie znaleziono miasta na mapie")
+                return
+
+            self.clients.append(c)
+            c.marker = self.map_widget.set_marker(*c.coords, text=c.name)
+
+            self.show_clients()
+            dialog.destroy()
+            messagebox.showinfo("Sukces", "Klient został dodany!")
+
+        Button(frame, text="Zapisz", command=save_client, width=12).grid(
+            row=2, column=0, pady=15, padx=5)
+        Button(frame, text="Anuluj", command=dialog.destroy, width=12).grid(
+            row=2, column=1, pady=15, padx=5)
+
+    def show_edit_client_dialog(self):
+        sel = self.view.list_box_clients.curselection()
+
+        if not sel:
+            messagebox.showwarning("Ostrzeżenie", "Wybierz klienta do edycji!")
+            return
+
+        client = self.clients[sel[0]]
+
+        dialog = Toplevel()
+        dialog.title("Edytuj klienta")
+        dialog.geometry("350x150")
+        dialog.resizable(False, False)
+
+        dialog.transient()
+        dialog.grab_set()
+
+        frame = Frame(dialog, padx=20, pady=20)
+        frame.pack(fill="both", expand=True)
+
+        Label(frame, text="Nazwa:").grid(row=0, column=0, sticky="w", pady=5)
+        entry_name = Entry(frame, width=25)
+        entry_name.insert(0, client.name)
+        entry_name.grid(row=0, column=1, pady=5, padx=5)
+        entry_name.focus()
+
+        Label(frame, text="Miasto:").grid(row=1, column=0, sticky="w", pady=5)
+        entry_city = Entry(frame, width=25)
+        entry_city.insert(0, client.city)
+        entry_city.grid(row=1, column=1, pady=5, padx=5)
+
+        def update_client():
+            name = entry_name.get().strip()
+            city = entry_city.get().strip()
+
+            if not name or not city:
+                messagebox.showwarning("Ostrzeżenie", "Wypełnij wszystkie pola!")
+                return
+
+            new_coords = get_coordinates_from_wikipedia(city)
+
+            if new_coords is None:
+                messagebox.showerror("Błąd", "Nie znaleziono miasta na mapie")
+                return
+
+            if hasattr(client, 'marker') and client.marker:
+                try:
+                    client.marker.delete()
+                except:
+                    pass
+                client.marker = None
+
+            client.name = name
+            client.city = city
+            client.coords = new_coords
+
+            client.marker = self.map_widget.set_marker(*client.coords, text=client.name)
+
+            self.show_clients()
+            dialog.destroy()
+            messagebox.showinfo("Sukces", "Dane klienta zostały zaktualizowane!")
+
+        Button(frame, text="Zapisz", command=update_client, width=12).grid(
+            row=2, column=0, pady=15, padx=5)
+        Button(frame, text="Anuluj", command=dialog.destroy, width=12).grid(
+            row=2, column=1, pady=15, padx=5)
+
+    def delete_client(self):
+        sel = self.view.list_box_clients.curselection()
+
+        if not sel:
+            messagebox.showwarning("Ostrzeżenie", "Wybierz klienta do usunięcia!")
+            return
+
+        client = self.clients[sel[0]]
+
+        result = messagebox.askyesno(
+            "Potwierdzenie",
+            f"Czy na pewno chcesz usunąć klienta {client.name}?"
+        )
+
+        if result:
+            if hasattr(client, 'marker') and client.marker:
+                try:
+                    client.marker.delete()
+                except:
+                    pass
+
+            self.clients.pop(sel[0])
+
+            self.show_clients()
+            messagebox.showinfo("Sukces", "Klient został usunięty!")
