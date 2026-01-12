@@ -10,6 +10,9 @@ class View:
         self.label_clinic_city_value = None
 
         self.list_box_doctors = None
+        self.list_box_doctors_of_clinic = None
+        self.list_box_all_free_doctors = None
+        self.list_box_clinics_for_assign = None
 
         self.list_box_patients = None
 
@@ -26,16 +29,17 @@ class View:
 def start_gui():
     root = Tk()
     root.title("System Zarządzania Przychodnią")
-    root.geometry("2000x750")
+    root.geometry("2400x750")
 
     view = View()
 
     map_widget = TkinterMapView(root, width=550, height=650, corner_radius=0)
-    map_widget.grid(row=0, column=5, rowspan=2, padx=10, pady=10, sticky=N)
+    map_widget.grid(row=0, column=6, rowspan=2, padx=10, pady=10, sticky=N)
     map_widget.set_position(52.2297, 21.0122)
     map_widget.set_zoom(6)
 
     controller = Controller(view, map_widget)
+
 
     ramka_clinics = Frame(root, relief="ridge", borderwidth=2)
     ramka_clinics.grid(row=0, column=0, padx=5, pady=5, sticky=N)
@@ -68,16 +72,32 @@ def start_gui():
     view.label_clinic_city_value = Label(details_frame, text="", fg="blue")
     view.label_clinic_city_value.grid(row=2, column=1, sticky="w")
 
-    ramka_doctors = Frame(root, relief="ridge", borderwidth=2)
-    ramka_doctors.grid(row=0, column=1, padx=5, pady=5, sticky=N)
 
-    Label(ramka_doctors, text="LEKARZE", font=("Arial", 12, "bold"), bg="lightgreen").pack(fill="x", pady=5)
+    ramka_doctors_of_clinic = Frame(root, relief="ridge", borderwidth=2)
+    ramka_doctors_of_clinic.grid(row=0, column=1, padx=5, pady=5, sticky=N)
 
-    view.list_box_doctors = Listbox(ramka_doctors, width=30, height=10, exportselection=False)
-    view.list_box_doctors.pack(padx=5, pady=5)
-    view.list_box_doctors.bind("<<ListboxSelect>>", controller.show_patients)
+    Label(ramka_doctors_of_clinic, text="LEKARZE PRZYCHODNI",
+          font=("Arial", 12, "bold"), bg="lightgreen").pack(fill="x", pady=5)
 
-    buttons_frame_doctors = Frame(ramka_doctors)
+    view.list_box_doctors_of_clinic = Listbox(ramka_doctors_of_clinic, width=30, height=10, exportselection=False)
+    view.list_box_doctors_of_clinic.pack(padx=5, pady=5)
+    view.list_box_doctors_of_clinic.bind("<<ListboxSelect>>", controller.on_doctor_of_clinic_select)
+
+    Button(ramka_doctors_of_clinic, text="Zmień przychodnię / Usuń", width=28,
+           command=controller.show_change_doctor_clinic_dialog).pack(pady=5, padx=5)
+
+
+    ramka_all_free_doctors = Frame(root, relief="ridge", borderwidth=2)
+    ramka_all_free_doctors.grid(row=0, column=2, padx=5, pady=5, sticky=N)
+
+    Label(ramka_all_free_doctors, text="WSZYSCY LEKARZE",
+          font=("Arial", 12, "bold"), bg="lightyellow").pack(fill="x", pady=5)
+
+    view.list_box_all_free_doctors = Listbox(ramka_all_free_doctors, width=30, height=10, exportselection=False)
+    view.list_box_all_free_doctors.pack(padx=5, pady=5)
+    view.list_box_all_free_doctors.bind("<<ListboxSelect>>", controller.on_free_doctor_select)
+
+    buttons_frame_doctors = Frame(ramka_all_free_doctors)
     buttons_frame_doctors.pack(pady=5)
 
     Button(buttons_frame_doctors, text="Dodaj", width=8,
@@ -87,8 +107,29 @@ def start_gui():
     Button(buttons_frame_doctors, text="Usuń", width=8,
            command=controller.delete_doctor).grid(row=0, column=2, padx=2)
 
+    Label(ramka_all_free_doctors, text="Przypisz do przychodni",
+          font=("Arial", 10, "bold")).pack(pady=(10, 5))
+
+    view.list_box_clinics_for_assign = Listbox(ramka_all_free_doctors, width=28, height=5, exportselection=False)
+    view.list_box_clinics_for_assign.pack(padx=5)
+    view.list_box_clinics_for_assign.bind("<<ListboxSelect>>", controller.on_clinic_for_assign_select)
+
+    Button(ramka_all_free_doctors, text="Przypisz wybranego lekarza", width=28,
+           command=controller.assign_doctor_to_clinic).pack(pady=8, padx=5)
+
+
+    ramka_doctors = Frame(root, relief="ridge", borderwidth=2)
+    ramka_doctors.grid(row=0, column=3, padx=5, pady=5, sticky=N)
+
+    Label(ramka_doctors, text="WSZYSCY LEKARZE", font=("Arial", 12, "bold"), bg="lightgreen").pack(fill="x", pady=5)
+
+    view.list_box_doctors = Listbox(ramka_doctors, width=30, height=15, exportselection=False)
+    view.list_box_doctors.pack(padx=5, pady=5)
+    view.list_box_doctors.bind("<<ListboxSelect>>", controller.show_patients)
+
+
     ramka_patients = Frame(root, relief="ridge", borderwidth=2)
-    ramka_patients.grid(row=0, column=2, padx=5, pady=5, sticky=N)
+    ramka_patients.grid(row=0, column=4, padx=5, pady=5, sticky=N)
 
     Label(ramka_patients, text="PACJENCI LEKARZA", font=("Arial", 12, "bold"), bg="lightyellow").pack(fill="x", pady=5)
 
@@ -100,7 +141,7 @@ def start_gui():
            command=controller.show_change_patient_doctor_dialog).pack(pady=5, padx=5)
 
     ramka_all_patients = Frame(root, relief="ridge", borderwidth=2)
-    ramka_all_patients.grid(row=0, column=3, padx=5, pady=5, sticky=N)
+    ramka_all_patients.grid(row=1, column=3, padx=5, pady=5, sticky=N)
 
     Label(ramka_all_patients, text="WSZYSCY PACJENCI", font=("Arial", 12, "bold"), bg="lightcoral").pack(fill="x",
                                                                                                          pady=5)
@@ -138,7 +179,7 @@ def start_gui():
     view.button_assign_patient.pack(pady=8, padx=5)
 
     ramka_clients = Frame(root, relief="ridge", borderwidth=2)
-    ramka_clients.grid(row=0, column=4, padx=5, pady=5, sticky=N)
+    ramka_clients.grid(row=0, column=5, padx=5, pady=5, sticky=N)
 
     Label(ramka_clients, text="KLIENCI", font=("Arial", 12, "bold"), bg="lightpink").pack(fill="x", pady=5)
 

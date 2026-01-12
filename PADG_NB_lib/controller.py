@@ -1,5 +1,5 @@
 from PADG_NB_lib.models import Clinic, Doctor, Patient, Client, get_coordinates_from_wikipedia
-from tkinter import messagebox, Toplevel, Label, Entry, Button, Frame
+from tkinter import messagebox, Toplevel, Label, Entry, Button, Frame, Listbox, SINGLE, Scrollbar, VERTICAL
 
 
 class Controller:
@@ -10,9 +10,12 @@ class Controller:
         self.clinics = []
         self.doctors = []
         self.free_patients = []
+        self.free_doctors = []
         self.clients = []
         self.selected_patient_index = None
         self.selected_doctor_index = None
+        self.selected_free_doctor_index = None
+        self.selected_clinic_for_assign_index = None
 
     def show_clinics(self):
         self.view.list_box_clinics.delete(0, "end")
@@ -32,6 +35,9 @@ class Controller:
         if c.coords:
             self.map_widget.set_position(*c.coords)
             self.map_widget.set_zoom(13)
+
+
+        self.show_doctors_of_clinic()
 
     def show_add_clinic_dialog(self):
         dialog = Toplevel()
@@ -71,6 +77,7 @@ class Controller:
             self.clinics.append(c)
             c.marker = self.map_widget.set_marker(*c.coords, text=c.name)
             self.show_clinics()
+            self.show_clinics_for_assign()
 
             dialog.destroy()
             messagebox.showinfo("Sukces", "Przychodnia została dodana!")
@@ -168,13 +175,21 @@ class Controller:
                 except:
                     pass
 
+
+            for doctor in clinic.doctors:
+                self.free_doctors.append(doctor)
+                doctor.clinic = None
+
             self.clinics.pop(sel[0])
 
             self.view.label_clinic_name_value.config(text="")
             self.view.label_clinic_city_value.config(text="")
 
             self.show_clinics()
-            messagebox.showinfo("Sukces", "Przychodnia została usunięta!")
+            self.show_doctors_of_clinic()
+            self.show_all_free_doctors()
+            self.show_clinics_for_assign()
+            messagebox.showinfo("Sukces", "Przychodnia została usunięta, lekarze przeniesieni do listy głównej!")
 
     def show_doctors(self):
         self.view.list_box_doctors.delete(0, "end")
@@ -225,9 +240,12 @@ class Controller:
                 return
 
             self.doctors.append(d)
+            self.free_doctors.append(d)
             d.marker = self.map_widget.set_marker(*d.coords, text=str(d))
 
             self.show_doctors()
+            self.show_all_free_doctors()
+            self.show_clinics_for_assign()
             dialog.destroy()
             messagebox.showinfo("Sukces", "Lekarz został dodany!")
 
@@ -237,13 +255,13 @@ class Controller:
             row=3, column=1, pady=15, padx=5)
 
     def show_edit_doctor_dialog(self):
-        sel = self.view.list_box_doctors.curselection()
+        sel = self.view.list_box_all_free_doctors.curselection()
 
         if not sel:
             messagebox.showwarning("Ostrzeżenie", "Wybierz lekarza do edycji!")
             return
 
-        doctor = self.doctors[sel[0]]
+        doctor = self.free_doctors[sel[0]]
 
         dialog = Toplevel()
         dialog.title("Edytuj lekarza")
@@ -302,6 +320,7 @@ class Controller:
             doctor.marker = self.map_widget.set_marker(*doctor.coords, text=str(doctor))
 
             self.show_doctors()
+            self.show_all_free_doctors()
             dialog.destroy()
             messagebox.showinfo("Sukces", "Dane lekarza zostały zaktualizowane!")
 
@@ -311,13 +330,13 @@ class Controller:
             row=3, column=1, pady=15, padx=5)
 
     def delete_doctor(self):
-        sel = self.view.list_box_doctors.curselection()
+        sel = self.view.list_box_all_free_doctors.curselection()
 
         if not sel:
             messagebox.showwarning("Ostrzeżenie", "Wybierz lekarza do usunięcia!")
             return
 
-        doctor = self.doctors[sel[0]]
+        doctor = self.free_doctors[sel[0]]
 
         result = messagebox.askyesno(
             "Potwierdzenie",
@@ -335,11 +354,13 @@ class Controller:
                 self.free_patients.append(patient)
                 patient.doctor = None
 
-            self.doctors.pop(sel[0])
+            self.doctors.remove(doctor)
+            self.free_doctors.pop(sel[0])
 
             self.show_doctors()
             self.show_all_patients()
-            self.view.list_box_patients.delete(0, "end")
+            self.show_all_free_doctors()
+            self.show_clinics_for_assign()
             messagebox.showinfo("Sukces", "Lekarz został usunięty, pacjenci przeniesieni do listy głównej!")
 
     def show_patients(self, event=None):
@@ -612,8 +633,6 @@ class Controller:
         Label(frame, text="Wybierz nowego lekarza:", font=("Arial", 9, "bold")).grid(row=2, column=0, columnspan=2,
                                                                                      pady=(10, 5))
 
-        from tkinter import Listbox, SINGLE, Scrollbar, VERTICAL
-
         listbox_frame = Frame(frame)
         listbox_frame.grid(row=3, column=0, columnspan=2, pady=5)
 
@@ -658,6 +677,171 @@ class Controller:
         Button(frame, text="Zmień lekarza", command=change_doctor, width=15).grid(
             row=4, column=0, pady=15, padx=5)
         Button(frame, text="Usuń z lekarza", command=remove_from_doctor, width=15).grid(
+            row=4, column=1, pady=15, padx=5)
+
+
+
+    def show_all_free_doctors(self):
+        """Wyświetla wszystkich lekarzy nieprzypisanych do przychodni"""
+        self.view.list_box_all_free_doctors.delete(0, "end")
+
+        for i, d in enumerate(self.free_doctors):
+            display_text = f"{d.first_name} {d.last_name} ({d.city})"
+            self.view.list_box_all_free_doctors.insert(i, display_text)
+
+    def show_doctors_of_clinic(self, event=None):
+        """Wyświetla lekarzy przypisanych do wybranej przychodni"""
+        self.view.list_box_doctors_of_clinic.delete(0, "end")
+
+        sel = self.view.list_box_clinics.curselection()
+        if not sel:
+            return
+
+        clinic = self.clinics[sel[0]]
+
+        for i, d in enumerate(clinic.doctors):
+            self.view.list_box_doctors_of_clinic.insert(i, str(d))
+
+    def show_clinics_for_assign(self):
+        """Wyświetla przychodnie dostępne do przypisania lekarza"""
+        self.view.list_box_clinics_for_assign.delete(0, "end")
+
+        for i, c in enumerate(self.clinics):
+            self.view.list_box_clinics_for_assign.insert(i, f"{c.name} ({c.city})")
+
+    def on_free_doctor_select(self, event):
+        """Obsługa wyboru wolnego lekarza"""
+        sel = self.view.list_box_all_free_doctors.curselection()
+        if sel:
+            self.selected_free_doctor_index = sel[0]
+            doctor = self.free_doctors[sel[0]]
+            if doctor.coords:
+                self.map_widget.set_position(*doctor.coords)
+                self.map_widget.set_zoom(13)
+
+    def on_clinic_for_assign_select(self, event):
+        """Obsługa wyboru przychodni do przypisania"""
+        sel = self.view.list_box_clinics_for_assign.curselection()
+        if sel:
+            self.selected_clinic_for_assign_index = sel[0]
+
+    def assign_doctor_to_clinic(self):
+        """Przypisuje lekarza do przychodni"""
+        if self.selected_free_doctor_index is None or self.selected_clinic_for_assign_index is None:
+            messagebox.showerror("Błąd", "Zaznacz lekarza i przychodnię")
+            return
+
+        if self.selected_free_doctor_index >= len(self.free_doctors) or self.selected_clinic_for_assign_index >= len(self.clinics):
+            messagebox.showerror("Błąd", "Nieprawidłowy wybór")
+            return
+
+        doctor = self.free_doctors.pop(self.selected_free_doctor_index)
+        clinic = self.clinics[self.selected_clinic_for_assign_index]
+
+        clinic.add_doctor(doctor)
+
+        self.selected_free_doctor_index = None
+        self.selected_clinic_for_assign_index = None
+
+        self.show_all_free_doctors()
+        self.show_doctors_of_clinic()
+        self.show_clinics()
+
+        messagebox.showinfo("Sukces",
+                            f"Lekarz {doctor.first_name} {doctor.last_name} został przypisany do przychodni {clinic.name}")
+
+    def on_doctor_of_clinic_select(self, event):
+        """Obsługa wyboru lekarza przychodni na mapie"""
+        sel = self.view.list_box_doctors_of_clinic.curselection()
+        if sel:
+            sel_clinic = self.view.list_box_clinics.curselection()
+            if sel_clinic:
+                clinic = self.clinics[sel_clinic[0]]
+                doctor = clinic.doctors[sel[0]]
+                if doctor.coords:
+                    self.map_widget.set_position(*doctor.coords)
+                    self.map_widget.set_zoom(13)
+
+    def show_change_doctor_clinic_dialog(self):
+        """Dialog do zmiany przychodni lekarza"""
+        sel = self.view.list_box_doctors_of_clinic.curselection()
+
+        if not sel:
+            messagebox.showwarning("Ostrzeżenie", "Wybierz lekarza do przeniesienia!")
+            return
+
+        sel_clinic = self.view.list_box_clinics.curselection()
+        if not sel_clinic:
+            messagebox.showwarning("Ostrzeżenie", "Najpierw wybierz przychodnię z listy!")
+            return
+
+        current_clinic = self.clinics[sel_clinic[0]]
+        doctor = current_clinic.doctors[sel[0]]
+
+        dialog = Toplevel()
+        dialog.title("Zmień przychodnię lekarza")
+        dialog.geometry("400x300")
+        dialog.resizable(False, False)
+
+        dialog.transient()
+        dialog.grab_set()
+
+        frame = Frame(dialog, padx=20, pady=20)
+        frame.pack(fill="both", expand=True)
+
+        Label(frame, text=f"Lekarz: {doctor.first_name} {doctor.last_name}",
+              font=("Arial", 10, "bold")).grid(row=0, column=0, columnspan=2, pady=10)
+        Label(frame, text=f"Obecna przychodnia: {current_clinic.name}").grid(
+            row=1, column=0, columnspan=2, pady=5)
+
+        Label(frame, text="Wybierz nową przychodnię:",
+              font=("Arial", 9, "bold")).grid(row=2, column=0, columnspan=2, pady=(10, 5))
+
+        listbox_frame = Frame(frame)
+        listbox_frame.grid(row=3, column=0, columnspan=2, pady=5)
+
+        scrollbar = Scrollbar(listbox_frame, orient=VERTICAL)
+        clinics_listbox = Listbox(listbox_frame, height=6, selectmode=SINGLE,
+                                  width=35, yscrollcommand=scrollbar.set)
+        scrollbar.config(command=clinics_listbox.yview)
+
+        clinics_listbox.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        available_clinics = [c for c in self.clinics if c != current_clinic]
+        for c in available_clinics:
+            clinics_listbox.insert("end", f"{c.name} ({c.city})")
+
+        def change_clinic():
+            sel_new = clinics_listbox.curselection()
+            if not sel_new:
+                messagebox.showwarning("Ostrzeżenie", "Wybierz nową przychodnię!")
+                return
+
+            new_clinic = available_clinics[sel_new[0]]
+
+            current_clinic.doctors.remove(doctor)
+            new_clinic.add_doctor(doctor)
+
+            self.show_doctors_of_clinic()
+            dialog.destroy()
+            messagebox.showinfo("Sukces",
+                                f"Lekarz przeniesiony do przychodni {new_clinic.name}!")
+
+        def remove_from_clinic():
+            current_clinic.doctors.remove(doctor)
+            doctor.clinic = None
+            self.free_doctors.append(doctor)
+
+            self.show_doctors_of_clinic()
+            self.show_all_free_doctors()
+            self.show_clinics_for_assign()
+            dialog.destroy()
+            messagebox.showinfo("Sukces", "Lekarz został przeniesiony do listy głównej!")
+
+        Button(frame, text="Zmień przychodnię", command=change_clinic, width=17).grid(
+            row=4, column=0, pady=15, padx=5)
+        Button(frame, text="Usuń z przychodni", command=remove_from_clinic, width=17).grid(
             row=4, column=1, pady=15, padx=5)
 
     def show_clients(self):
