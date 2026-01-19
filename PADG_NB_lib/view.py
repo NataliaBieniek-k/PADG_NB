@@ -1,10 +1,12 @@
-from tkinter import Tk, Frame, Label, Entry, Button, Listbox, N, END, Toplevel
+from tkinter import Tk, Frame, Label, Listbox, Button, Canvas, Scrollbar
 from tkintermapview import TkinterMapView
 from PADG_NB_lib.controller import Controller
 
 
 class View:
-    def __init__(self):
+    def __init__(self, root):
+        self.root = root
+
         self.list_box_clinics = None
         self.label_clinic_name_value = None
         self.label_clinic_city_value = None
@@ -21,7 +23,6 @@ class View:
         self.list_box_doctors_for_assign = None
         self.list_box_clinics_for_patient_assign = None
         self.button_assign_patient = None
-        self.button_add_all_patient = None
         self.button_edit_patient = None
         self.button_delete_patient = None
 
@@ -29,216 +30,265 @@ class View:
         self.list_box_clients_of_clinic = None
         self.list_box_clinics_for_client_assign = None
 
+        self.menu_frame = Frame(root, bg="#2c3e50")
+        self.menu_frame.pack(side="top", fill="x")
+
+        self.content_frame = Frame(root, bg="#ecf0f1")
+        self.content_frame.pack(fill="both", expand=True)
+
+        self.frames = {}
+        self.controller = Controller(self, None)
+
+        self._create_menu()
+        self._create_views()
+        self.show_view("clinics")
+
+    def _menu_button(self, text, view):
+        Button(
+            self.menu_frame,
+            text=text,
+            bg="#34495e",
+            fg="white",
+            activebackground="#1abc9c",
+            width=16,
+            command=lambda: self.show_view(view)
+        ).pack(side="left", padx=2, pady=2)
+
+    def _create_menu(self):
+        self._menu_button("PRZYCHODNIE", "clinics")
+        self._menu_button("LEKARZE", "doctors")
+        self._menu_button("PACJENCI", "patients")
+        self._menu_button("KLIENCI", "clients")
+        self._menu_button("MAPA", "map")
+
+    def _create_views(self):
+        self.frames["clinics"] = self._create_clinics_view()
+        self.frames["doctors"] = self._create_doctors_view()
+        self.frames["patients"] = self._create_patients_view()
+        self.frames["clients"] = self._create_clients_view()
+        self.frames["map"] = self._create_map_view()
+
+        for frame in self.frames.values():
+            frame.place(relx=0.5, rely=0, anchor="n", relwidth=1, relheight=1)
+
+    def show_view(self, name):
+        self.frames[name].tkraise()
+
+    def _section(self, parent, title, color):
+        Label(parent, text=title, font=("Arial", 14, "bold"),
+              bg=color, fg="white", pady=6).pack(fill="x", pady=(10, 5))
+
+    def _create_clinics_view(self):
+        frame = Frame(self.content_frame, bg="#ecf0f1")
+
+        canvas = Canvas(frame, bg="#ecf0f1", highlightthickness=0)
+        scroll = Scrollbar(frame, orient="vertical", command=canvas.yview)
+        canvas.configure(yscrollcommand=scroll.set)
+
+        scroll.pack(side="right", fill="y")
+        canvas.pack(side="left", fill="both", expand=True)
+
+
+        inner_frame = Frame(canvas, bg="#ecf0f1")
+        canvas.create_window((canvas.winfo_width() // 2, 0), window=inner_frame, anchor="n")
+
+
+        def on_configure(event):
+            canvas.configure(scrollregion=canvas.bbox("all"))
+            canvas.itemconfig(canvas.find_withtag("all")[0], width=canvas.winfo_width())
+            canvas.coords(canvas.find_withtag("all")[0], canvas.winfo_width() // 2, 0)
+
+        inner_frame.bind("<Configure>", on_configure)
+        canvas.bind("<Configure>", on_configure)
+
+        self._section(inner_frame, "PRZYCHODNIE", "#2980b9")
+        self.list_box_clinics = Listbox(inner_frame, width=50, height=6, exportselection=False)
+        self.list_box_clinics.pack(pady=5)
+        self.list_box_clinics.bind("<<ListboxSelect>>", self.controller.show_clinic_details)
+
+        buttons_frame = Frame(inner_frame, bg="#ecf0f1")
+        buttons_frame.pack(pady=5)
+        Button(buttons_frame, text="Dodaj", width=12, command=self.controller.show_add_clinic_dialog).pack(side="left",
+                                                                                                           padx=2)
+        Button(buttons_frame, text="Edytuj", width=12, command=self.controller.show_edit_clinic_dialog).pack(
+            side="left", padx=2)
+        Button(buttons_frame, text="Usuń", width=12, command=self.controller.delete_clinic).pack(side="left", padx=2)
+
+        self._section(inner_frame, "LEKARZE PRZYCHODNI", "#27ae60")
+        self.list_box_doctors_of_clinic = Listbox(inner_frame, width=50, height=5, exportselection=False)
+        self.list_box_doctors_of_clinic.pack(pady=3)
+        self.list_box_doctors_of_clinic.bind("<<ListboxSelect>>", self.controller.on_doctor_of_clinic_select)
+        Button(inner_frame, text="Zmień / Usuń lekarza", command=self.controller.show_change_doctor_clinic_dialog).pack(
+            pady=2)
+
+        self._section(inner_frame, "PACJENCI PRZYCHODNI", "#e67e22")
+        self.list_box_patients_of_clinic = Listbox(inner_frame, width=50, height=5, exportselection=False)
+        self.list_box_patients_of_clinic.pack(pady=3)
+        self.list_box_patients_of_clinic.bind("<<ListboxSelect>>", self.controller.on_patient_of_clinic_select)
+        Button(inner_frame, text="Zmień / Usuń pacjenta",
+               command=self.controller.show_change_patient_clinic_dialog).pack(pady=2)
+
+        self._section(inner_frame, "KLIENCI PRZYCHODNI", "#8e44ad")
+        self.list_box_clients_of_clinic = Listbox(inner_frame, width=50, height=5, exportselection=False)
+        self.list_box_clients_of_clinic.pack(pady=3)
+        self.list_box_clients_of_clinic.bind("<<ListboxSelect>>", self.controller.on_client_of_clinic_select)
+        Button(inner_frame, text="Zmień / Usuń klienta", command=self.controller.show_change_client_clinic_dialog).pack(
+            pady=2)
+
+        return frame
+
+    def _create_doctors_view(self):
+        frame = Frame(self.content_frame, bg="#ecf0f1")
+
+        self._section(frame, "LEKARZE", "#27ae60")
+
+        self.list_box_all_free_doctors = Listbox(frame, width=50, height=10, exportselection=False)
+        self.list_box_all_free_doctors.pack(pady=5)
+        self.list_box_all_free_doctors.bind("<<ListboxSelect>>",
+                                            self.controller.on_free_doctor_select)
+
+        self.list_box_doctors = self.list_box_all_free_doctors
+
+        Button(frame, text="Dodaj lekarza",
+               command=self.controller.show_add_doctor_dialog).pack(pady=2)
+        Button(frame, text="Edytuj lekarza",
+               command=self.controller.show_edit_doctor_dialog).pack(pady=2)
+        Button(frame, text="Usuń lekarza",
+               command=self.controller.delete_doctor).pack(pady=2)
+
+        Label(frame, text="Przypisz do przychodni", font=("Arial", 10, "bold"),
+              bg="#ecf0f1").pack(pady=(10, 0))
+
+        self.list_box_clinics_for_assign = Listbox(frame, width=48, height=5, exportselection=False)
+        self.list_box_clinics_for_assign.pack(pady=5)
+        self.list_box_clinics_for_assign.bind("<<ListboxSelect>>",
+                                              self.controller.on_clinic_for_assign_select)
+
+        Button(frame, text="Przypisz lekarza",
+               command=self.controller.assign_doctor_to_clinic).pack(pady=5)
+
+        self._section(frame, "PACJENCI WYBRANEGO LEKARZA", "#e67e22")
+
+        self.list_box_patients = Listbox(frame, width=50, height=8, exportselection=False)
+        self.list_box_patients.pack(pady=5)
+        self.list_box_patients.bind("<<ListboxSelect>>",
+                                    self.controller.on_patient_of_doctor_select)
+
+        Button(frame, text="Zmień lekarza / Usuń pacjenta",
+               command=self.controller.show_change_patient_doctor_dialog).pack(pady=5)
+
+        return frame
+
+    def _create_patients_view(self):
+        frame = Frame(self.content_frame, bg="#ecf0f1")
+
+        self._section(frame, "PACJENCI", "#e67e22")
+
+        self.list_box_all_patients = Listbox(frame, width=50, height=12, exportselection=False)
+        self.list_box_all_patients.pack(pady=5)
+        self.list_box_all_patients.bind("<<ListboxSelect>>",
+                                        self.controller.on_patient_select)
+
+        Button(frame, text="Dodaj pacjenta",
+               command=self.controller.show_add_patient_dialog).pack(pady=2)
+        Button(frame, text="Edytuj pacjenta",
+               command=self.controller.show_edit_patient_dialog).pack(pady=2)
+        Button(frame, text="Usuń pacjenta",
+               command=self.controller.delete_patient).pack(pady=2)
+
+        Label(frame, text="Przypisz do lekarza", font=("Arial", 10, "bold"),
+              bg="#ecf0f1").pack(pady=(10, 0))
+
+        self.list_box_doctors_for_assign = Listbox(frame, width=48, height=5, exportselection=False)
+        self.list_box_doctors_for_assign.pack(pady=5)
+        self.list_box_doctors_for_assign.bind("<<ListboxSelect>>",
+                                              self.controller.on_doctor_select)
+
+        Button(frame, text="Przypisz do lekarza",
+               command=self.controller.assign_patient_to_doctor).pack(pady=5)
+
+        Label(frame, text="Przypisz do przychodni", font=("Arial", 10, "bold"),
+              bg="#ecf0f1").pack(pady=(10, 0))
+
+        self.list_box_clinics_for_patient_assign = Listbox(frame, width=48, height=5, exportselection=False)
+        self.list_box_clinics_for_patient_assign.pack(pady=5)
+        self.list_box_clinics_for_patient_assign.bind("<<ListboxSelect>>",
+                                                      self.controller.on_clinic_for_patient_assign_select)
+
+        Button(frame, text="Przypisz do przychodni",
+               command=self.controller.assign_patient_to_clinic).pack(pady=5)
+
+        return frame
+
+    def _create_clients_view(self):
+        frame = Frame(self.content_frame, bg="#ecf0f1")
+
+        self._section(frame, "KLIENCI", "#8e44ad")
+
+        self.list_box_clients = Listbox(frame, width=50, height=12, exportselection=False)
+        self.list_box_clients.pack(pady=5)
+        self.list_box_clients.bind("<<ListboxSelect>>",
+                                   self.controller.on_client_select)
+
+        Button(frame, text="Dodaj klienta",
+               command=self.controller.show_add_client_dialog).pack(pady=2)
+        Button(frame, text="Edytuj klienta",
+               command=self.controller.show_edit_client_dialog).pack(pady=2)
+        Button(frame, text="Usuń klienta",
+               command=self.controller.delete_client).pack(pady=2)
+
+        Label(frame, text="Przypisz do przychodni", font=("Arial", 10, "bold"),
+              bg="#ecf0f1").pack(pady=(10, 0))
+
+        self.list_box_clinics_for_client_assign = Listbox(frame, width=48, height=5, exportselection=False)
+        self.list_box_clinics_for_client_assign.pack(pady=5)
+        self.list_box_clinics_for_client_assign.bind("<<ListboxSelect>>",
+                                                     self.controller.on_clinic_for_client_assign_select)
+
+        Button(frame, text="Przypisz klienta",
+               command=self.controller.assign_client_to_clinic).pack(pady=5)
+
+        return frame
+
+
+    def _create_map_view(self):
+        frame = Frame(self.content_frame, bg="#ecf0f1")
+
+        control_panel = Frame(frame, bg="#ecf0f1", width=200)
+        control_panel.pack(side="left", fill="y", padx=10, pady=10)
+
+        Label(control_panel, text="WYŚWIETL NA MAPIE", font=("Arial", 12, "bold"),
+              bg="#ecf0f1").pack(pady=10)
+
+        Button(control_panel, text="Wszystkie przychodnie", width=20,
+               command=self.controller.show_all_clinics_on_map).pack(pady=5)
+        Button(control_panel, text="Wszyscy lekarze", width=20,
+               command=self.controller.show_all_doctors_on_map).pack(pady=5)
+        Button(control_panel, text="Wszyscy pacjenci", width=20,
+               command=self.controller.show_all_patients_on_map).pack(pady=5)
+        Button(control_panel, text="Wszyscy klienci", width=20,
+               command=self.controller.show_all_clients_on_map).pack(pady=5)
+        Button(control_panel, text="Wyczyść mapę", width=20,
+               command=self.controller.clear_map).pack(pady=20)
+
+        map_frame = Frame(frame)
+        map_frame.pack(side="right", fill="both", expand=True)
+
+        map_widget = TkinterMapView(map_frame, width=1200, height=700)
+        map_widget.pack(fill="both", expand=True)
+        map_widget.set_position(52.2297, 21.0122)
+        map_widget.set_zoom(6)
+
+        self.controller.map_widget = map_widget
+        return frame
+
+    def clear_map(self):
+        self.map_widget.delete_all_marker()
+
 
 def start_gui():
     root = Tk()
     root.title("System Zarządzania Przychodnią")
-    root.geometry("2800x750")
-
-    view = View()
-
-    map_widget = TkinterMapView(root, width=550, height=650, corner_radius=0)
-    map_widget.grid(row=0, column=8, rowspan=2, padx=10, pady=10, sticky=N)
-    map_widget.set_position(52.2297, 21.0122)
-    map_widget.set_zoom(6)
-
-    controller = Controller(view, map_widget)
-
-    ramka_clinics = Frame(root, relief="ridge", borderwidth=2)
-    ramka_clinics.grid(row=0, column=0, padx=5, pady=5, sticky=N)
-
-    Label(ramka_clinics, text="PRZYCHODNIE", font=("Arial", 12, "bold"), bg="lightblue").pack(fill="x", pady=5)
-
-    view.list_box_clinics = Listbox(ramka_clinics, width=30, height=10, exportselection=False)
-    view.list_box_clinics.pack(padx=5, pady=5)
-    view.list_box_clinics.bind("<<ListboxSelect>>", controller.show_clinic_details)
-
-    buttons_frame_clinics = Frame(ramka_clinics)
-    buttons_frame_clinics.pack(pady=5)
-
-    Button(buttons_frame_clinics, text="Dodaj", width=8,
-           command=controller.show_add_clinic_dialog).grid(row=0, column=0, padx=2)
-    Button(buttons_frame_clinics, text="Edytuj", width=8,
-           command=controller.show_edit_clinic_dialog).grid(row=0, column=1, padx=2)
-    Button(buttons_frame_clinics, text="Usuń", width=8,
-           command=controller.delete_clinic).grid(row=0, column=2, padx=2)
-
-    details_frame = Frame(ramka_clinics)
-    details_frame.pack(pady=10, padx=5)
-
-    Label(details_frame, text="Szczegóły:", font=("Arial", 10, "bold")).grid(row=0, column=0, columnspan=2, pady=5)
-    Label(details_frame, text="Nazwa:").grid(row=1, column=0, sticky="w")
-    view.label_clinic_name_value = Label(details_frame, text="", fg="blue")
-    view.label_clinic_name_value.grid(row=1, column=1, sticky="w")
-
-    Label(details_frame, text="Miasto:").grid(row=2, column=0, sticky="w")
-    view.label_clinic_city_value = Label(details_frame, text="", fg="blue")
-    view.label_clinic_city_value.grid(row=2, column=1, sticky="w")
-
-    ramka_doctors_of_clinic = Frame(root, relief="ridge", borderwidth=2)
-    ramka_doctors_of_clinic.grid(row=0, column=1, padx=5, pady=5, sticky=N)
-
-    Label(ramka_doctors_of_clinic, text="LEKARZE PRZYCHODNI",
-          font=("Arial", 12, "bold"), bg="lightgreen").pack(fill="x", pady=5)
-
-    view.list_box_doctors_of_clinic = Listbox(ramka_doctors_of_clinic, width=30, height=10, exportselection=False)
-    view.list_box_doctors_of_clinic.pack(padx=5, pady=5)
-    view.list_box_doctors_of_clinic.bind("<<ListboxSelect>>", controller.on_doctor_of_clinic_select)
-
-    Button(ramka_doctors_of_clinic, text="Zmień przychodnię / Usuń", width=28,
-           command=controller.show_change_doctor_clinic_dialog).pack(pady=5, padx=5)
-
-    ramka_patients_of_clinic = Frame(root, relief="ridge", borderwidth=2)
-    ramka_patients_of_clinic.grid(row=1, column=0, padx=5, pady=5, sticky=N)
-
-    Label(ramka_patients_of_clinic, text="PACJENCI PRZYCHODNI",
-          font=("Arial", 12, "bold"), bg="lightsalmon").pack(fill="x", pady=5)
-
-    view.list_box_patients_of_clinic = Listbox(ramka_patients_of_clinic, width=30, height=10, exportselection=False)
-    view.list_box_patients_of_clinic.pack(padx=5, pady=5)
-    view.list_box_patients_of_clinic.bind("<<ListboxSelect>>", controller.on_patient_of_clinic_select)
-
-    Button(ramka_patients_of_clinic, text="Zmień przychodnię / Usuń", width=28,
-           command=controller.show_change_patient_clinic_dialog).pack(pady=5, padx=5)
-
-    ramka_all_free_doctors = Frame(root, relief="ridge", borderwidth=2)
-    ramka_all_free_doctors.grid(row=0, column=2, padx=5, pady=5, sticky=N)
-
-    Label(ramka_all_free_doctors, text="WSZYSCY LEKARZE",
-          font=("Arial", 12, "bold"), bg="lightyellow").pack(fill="x", pady=5)
-
-    view.list_box_all_free_doctors = Listbox(ramka_all_free_doctors, width=30, height=10, exportselection=False)
-    view.list_box_all_free_doctors.pack(padx=5, pady=5)
-    view.list_box_all_free_doctors.bind("<<ListboxSelect>>", controller.on_free_doctor_select)
-
-    buttons_frame_doctors = Frame(ramka_all_free_doctors)
-    buttons_frame_doctors.pack(pady=5)
-
-    Button(buttons_frame_doctors, text="Dodaj", width=8,
-           command=controller.show_add_doctor_dialog).grid(row=0, column=0, padx=2)
-    Button(buttons_frame_doctors, text="Edytuj", width=8,
-           command=controller.show_edit_doctor_dialog).grid(row=0, column=1, padx=2)
-    Button(buttons_frame_doctors, text="Usuń", width=8,
-           command=controller.delete_doctor).grid(row=0, column=2, padx=2)
-
-    Label(ramka_all_free_doctors, text="Przypisz do przychodni",
-          font=("Arial", 10, "bold")).pack(pady=(10, 5))
-
-    view.list_box_clinics_for_assign = Listbox(ramka_all_free_doctors, width=28, height=5, exportselection=False)
-    view.list_box_clinics_for_assign.pack(padx=5)
-    view.list_box_clinics_for_assign.bind("<<ListboxSelect>>", controller.on_clinic_for_assign_select)
-
-    Button(ramka_all_free_doctors, text="Przypisz wybranego lekarza", width=28,
-           command=controller.assign_doctor_to_clinic).pack(pady=8, padx=5)
-
-    ramka_doctors = Frame(root, relief="ridge", borderwidth=2)
-    ramka_doctors.grid(row=0, column=3, padx=5, pady=5, sticky=N)
-
-    Label(ramka_doctors, text="WSZYSCY LEKARZE", font=("Arial", 12, "bold"), bg="lightgreen").pack(fill="x", pady=5)
-
-    view.list_box_doctors = Listbox(ramka_doctors, width=30, height=15, exportselection=False)
-    view.list_box_doctors.pack(padx=5, pady=5)
-    view.list_box_doctors.bind("<<ListboxSelect>>", controller.show_patients)
-
-    ramka_patients = Frame(root, relief="ridge", borderwidth=2)
-    ramka_patients.grid(row=0, column=4, padx=5, pady=5, sticky=N)
-
-    Label(ramka_patients, text="PACJENCI LEKARZA", font=("Arial", 12, "bold"), bg="lightyellow").pack(fill="x", pady=5)
-
-    view.list_box_patients = Listbox(ramka_patients, width=30, height=10, exportselection=False)
-    view.list_box_patients.pack(padx=5, pady=5)
-    view.list_box_patients.bind("<<ListboxSelect>>", controller.on_patient_of_doctor_select)
-
-    Button(ramka_patients, text="Zmień lekarza / Usuń z lekarza", width=28,
-           command=controller.show_change_patient_doctor_dialog).pack(pady=5, padx=5)
-
-    ramka_all_patients = Frame(root, relief="ridge", borderwidth=2)
-    ramka_all_patients.grid(row=0, column=5, padx=5, pady=5, sticky=N)
-
-    Label(ramka_all_patients, text="WSZYSCY PACJENCI", font=("Arial", 12, "bold"), bg="lightcoral").pack(fill="x",
-                                                                                                         pady=5)
-
-    view.list_box_all_patients = Listbox(ramka_all_patients, width=30, height=10, exportselection=False)
-    view.list_box_all_patients.pack(padx=5, pady=5)
-    view.list_box_all_patients.bind("<<ListboxSelect>>", controller.on_patient_select)
-
-    buttons_frame = Frame(ramka_all_patients)
-    buttons_frame.pack(pady=5)
-
-    Button(buttons_frame, text="Dodaj", width=8,
-           command=controller.show_add_patient_dialog).grid(row=0, column=0, padx=2)
-
-    view.button_edit_patient = Button(buttons_frame, text="Edytuj", width=8,
-                                      command=controller.show_edit_patient_dialog)
-    view.button_edit_patient.grid(row=0, column=1, padx=2)
-
-    view.button_delete_patient = Button(buttons_frame, text="Usuń", width=8,
-                                        command=controller.delete_patient)
-    view.button_delete_patient.grid(row=0, column=2, padx=2)
-
-    Label(ramka_all_patients, text="Przypisz do lekarza", font=("Arial", 10, "bold")).pack(pady=(10, 5))
-
-    view.list_box_doctors_for_assign = Listbox(ramka_all_patients, width=28, height=5, exportselection=False)
-    view.list_box_doctors_for_assign.pack(padx=5)
-    view.list_box_doctors_for_assign.bind("<<ListboxSelect>>", controller.on_doctor_select)
-
-    view.button_assign_patient = Button(
-        ramka_all_patients,
-        text="Przypisz wybranego pacjenta",
-        width=28,
-        command=controller.assign_patient_to_doctor
-    )
-    view.button_assign_patient.pack(pady=8, padx=5)
-
-    Label(ramka_all_patients, text="Przypisz do przychodni", font=("Arial", 10, "bold")).pack(pady=(10, 5))
-
-    view.list_box_clinics_for_patient_assign = Listbox(ramka_all_patients, width=28, height=5, exportselection=False)
-    view.list_box_clinics_for_patient_assign.pack(padx=5)
-    view.list_box_clinics_for_patient_assign.bind("<<ListboxSelect>>", controller.on_clinic_for_patient_assign_select)
-
-    Button(ramka_all_patients, text="Przypisz do przychodni", width=28,
-           command=controller.assign_patient_to_clinic).pack(pady=8, padx=5)
-
-    ramka_clients_of_clinic = Frame(root, relief="ridge", borderwidth=2)
-    ramka_clients_of_clinic.grid(row=1, column=1, padx=5, pady=5, sticky=N)
-
-    Label(ramka_clients_of_clinic, text="KLIENCI PRZYCHODNI",
-          font=("Arial", 12, "bold"), bg="lightpink").pack(fill="x", pady=5)
-
-    view.list_box_clients_of_clinic = Listbox(ramka_clients_of_clinic, width=30, height=10, exportselection=False)
-    view.list_box_clients_of_clinic.pack(padx=5, pady=5)
-    view.list_box_clients_of_clinic.bind("<<ListboxSelect>>", controller.on_client_of_clinic_select)
-
-    Button(ramka_clients_of_clinic, text="Zmień przychodnię / Usuń", width=28,
-           command=controller.show_change_client_clinic_dialog).pack(pady=5, padx=5)
-
-    ramka_clients = Frame(root, relief="ridge", borderwidth=2)
-    ramka_clients.grid(row=0, column=6, padx=5, pady=5, sticky=N)
-
-    Label(ramka_clients, text="WSZYSCY KLIENCI", font=("Arial", 12, "bold"), bg="lavender").pack(fill="x", pady=5)
-
-    view.list_box_clients = Listbox(ramka_clients, width=30, height=10, exportselection=False)
-    view.list_box_clients.pack(padx=5, pady=5)
-    view.list_box_clients.bind("<<ListboxSelect>>", controller.on_client_select)
-
-    buttons_frame_clients = Frame(ramka_clients)
-    buttons_frame_clients.pack(pady=5)
-
-    Button(buttons_frame_clients, text="Dodaj", width=8,
-           command=controller.show_add_client_dialog).grid(row=0, column=0, padx=2)
-    Button(buttons_frame_clients, text="Edytuj", width=8,
-           command=controller.show_edit_client_dialog).grid(row=0, column=1, padx=2)
-    Button(buttons_frame_clients, text="Usuń", width=8,
-           command=controller.delete_client).grid(row=0, column=2, padx=2)
-
-    Label(ramka_clients, text="Przypisz do przychodni",
-          font=("Arial", 10, "bold")).pack(pady=(10, 5))
-
-    view.list_box_clinics_for_client_assign = Listbox(ramka_clients, width=28, height=5, exportselection=False)
-    view.list_box_clinics_for_client_assign.pack(padx=5)
-    view.list_box_clinics_for_client_assign.bind("<<ListboxSelect>>", controller.on_clinic_for_client_assign_select)
-
-    Button(ramka_clients, text="Przypisz wybranego klienta", width=28,
-           command=controller.assign_client_to_clinic).pack(pady=8, padx=5)
-
+    root.geometry("1700x900")
+    View(root)
     root.mainloop()

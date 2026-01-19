@@ -44,7 +44,7 @@ class Clinic:
 
     def add_patient(self, patient):
         self.patients.append(patient)
-        patient.clinic = se
+        patient.clinic = self
 
 
 class Doctor:
