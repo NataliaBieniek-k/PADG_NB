@@ -28,6 +28,7 @@ class Clinic:
         self.coords = self.get_coordinates()
         self.doctors = []
         self.clients = []
+        self.patients = []
         self.marker = None
 
     def get_coordinates(self):
@@ -40,6 +41,10 @@ class Clinic:
     def add_client(self, client):
         self.clients.append(client)
         client.clinic = self
+
+    def add_patient(self, patient):
+        self.patients.append(patient)
+        patient.clinic = se
 
 
 class Doctor:
@@ -71,6 +76,8 @@ class Patient:
         self.doctor = None
         self.coords = self.get_coordinates()
         self.marker = None
+        self.clinic = None
+
 
     def get_coordinates(self):
         return get_coordinates_from_wikipedia(self.city)

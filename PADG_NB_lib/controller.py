@@ -14,7 +14,7 @@ class Controller:
         self.selected_clinic_for_assign = None
         self.selected_doctor_for_assign = None
         self.selected_clinic_for_client_assign = None
-
+        self.selected_clinic_for_patient_assign = None
 
     def show_clinic_details(self, event):
         selection = self.view.list_box_clinics.curselection()
@@ -28,6 +28,10 @@ class Controller:
         self.view.list_box_doctors_of_clinic.delete(0, END)
         for doctor in clinic.doctors:
             self.view.list_box_doctors_of_clinic.insert(END, f"{doctor.first_name} {doctor.last_name} ({doctor.city})")
+
+        self.view.list_box_patients_of_clinic.delete(0, END)
+        for patient in clinic.patients:
+            self.view.list_box_patients_of_clinic.insert(END, f"{patient.first_name} {patient.last_name} ({patient.city})")
 
         self.refresh_clients_lists()
 
@@ -137,6 +141,9 @@ class Controller:
         for client in clinic.clients[:]:
             client.clinic = None
 
+        for patient in clinic.patients[:]:
+            patient.clinic = None
+
         if clinic.marker:
             clinic.marker.delete()
 
@@ -145,6 +152,7 @@ class Controller:
         self.refresh_clinics_lists()
         self.refresh_doctors_lists()
         self.refresh_clients_lists()
+        self.refresh_patients_lists()
         messagebox.showinfo("Sukces", "Usunięto przychodnię")
 
     def refresh_clinics_lists(self):
@@ -155,7 +163,6 @@ class Controller:
         self.view.list_box_clinics_for_assign.delete(0, END)
         for clinic in self.clinics:
             self.view.list_box_clinics_for_assign.insert(END, clinic.name)
-
 
     def on_doctor_of_clinic_select(self, event):
         pass
@@ -406,6 +413,9 @@ class Controller:
     def on_patient_of_doctor_select(self, event):
         pass
 
+    def on_patient_of_clinic_select(self, event):
+        pass
+
     def on_patient_select(self, event):
         pass
 
@@ -413,6 +423,11 @@ class Controller:
         selection = self.view.list_box_doctors_for_assign.curselection()
         if selection:
             self.selected_doctor_for_assign = self.doctors[selection[0]]
+
+    def on_clinic_for_patient_assign_select(self, event):
+        selection = self.view.list_box_clinics_for_patient_assign.curselection()
+        if selection:
+            self.selected_clinic_for_patient_assign = self.clinics[selection[0]]
 
     def show_add_patient_dialog(self):
         dialog = Toplevel()
@@ -529,6 +544,9 @@ class Controller:
         if patient.doctor:
             patient.doctor.patients.remove(patient)
 
+        if patient.clinic:
+            patient.clinic.patients.remove(patient)
+
         if patient.marker:
             patient.marker.delete()
 
@@ -558,6 +576,29 @@ class Controller:
         self.refresh_patients_lists()
         messagebox.showinfo("Sukces",
                             f"Przypisano pacjenta {patient.first_name} {patient.last_name} do lekarza {self.selected_doctor_for_assign.first_name} {self.selected_doctor_for_assign.last_name}")
+
+    def assign_patient_to_clinic(self):
+        patient_selection = self.view.list_box_all_patients.curselection()
+
+        if not patient_selection:
+            messagebox.showwarning("Błąd", "Wybierz pacjenta!")
+            return
+
+        if not self.selected_clinic_for_patient_assign:
+            messagebox.showwarning("Błąd", "Wybierz przychodnię!")
+            return
+
+        patient = self.patients[patient_selection[0]]
+
+        if patient.clinic:
+            patient.clinic.patients.remove(patient)
+
+        self.selected_clinic_for_patient_assign.add_patient(patient)
+
+        self.refresh_patients_lists()
+        self.refresh_clinics_lists()
+        messagebox.showinfo("Sukces",
+                            f"Przypisano pacjenta {patient.first_name} {patient.last_name} do {self.selected_clinic_for_patient_assign.name}")
 
     def show_change_patient_doctor_dialog(self):
         selection = self.view.list_box_patients.curselection()
@@ -615,6 +656,87 @@ class Controller:
         Button(dialog, text="Zmień lekarza", command=change_doctor).pack(pady=5)
         Button(dialog, text="Usuń od lekarza", command=remove_from_doctor).pack(pady=5)
 
+    def show_change_patient_clinic_dialog(self):
+        selection = self.view.list_box_patients_of_clinic.curselection()
+        if not selection:
+            messagebox.showwarning("Błąd", "Wybierz pacjenta z listy!")
+            return
+
+        clinic_selection = self.view.list_box_clinics.curselection()
+        if not clinic_selection:
+            messagebox.showwarning("Błąd", "Najpierw wybierz przychodnię!")
+            return
+
+        current_clinic = self.clinics[clinic_selection[0]]
+        patient = current_clinic.patients[selection[0]]
+
+        dialog = Toplevel()
+        dialog.title(f"Zmień przychodnię: {patient.first_name} {patient.last_name}")
+        dialog.geometry("400x300")
+
+        Label(dialog, text="Wybierz nową przychodnię lub usuń z obecnej:",
+              font=("Arial", 10, "bold")).pack(pady=10)
+
+        listbox_clinics = Listbox(dialog, width=50, height=10)
+        listbox_clinics.pack(padx=10, pady=5)
+
+        for clinic in self.clinics:
+            if clinic != current_clinic:
+                listbox_clinics.insert(END, clinic.name)
+
+        def change_clinic():
+            new_selection = listbox_clinics.curselection()
+            if not new_selection:
+                messagebox.showwarning("Błąd", "Wybierz przychodnię!")
+                return
+
+            current_clinic.patients.remove(patient)
+
+            new_clinic = [c for c in self.clinics if c != current_clinic][new_selection[0]]
+            new_clinic.add_patient(patient)
+
+            self.refresh_patients_lists()
+            self.refresh_clinics_lists()
+            dialog.destroy()
+            messagebox.showinfo("Sukces", f"Przeniesiono do {new_clinic.name}")
+
+        def remove_from_clinic():
+            result = messagebox.askyesno("Potwierdzenie",
+                                         f"Usunąć pacjenta z {current_clinic.name}?")
+            if result:
+                current_clinic.patients.remove(patient)
+                patient.clinic = None
+                self.refresh_patients_lists()
+                self.refresh_clinics_lists()
+                dialog.destroy()
+                messagebox.showinfo("Sukces", "Usunięto z przychodni")
+
+        Button(dialog, text="Zmień przychodnię", command=change_clinic).pack(pady=5)
+        Button(dialog, text="Usuń z przychodni", command=remove_from_clinic).pack(pady=5)
+
+    def refresh_patients_lists(self):
+        self.view.list_box_all_patients.delete(0, END)
+        for patient in self.patients:
+            display_text = f"{patient.first_name} {patient.last_name} ({patient.city})"
+            if patient.clinic:
+                display_text += f" - {patient.clinic.name}"
+            self.view.list_box_all_patients.insert(END, display_text)
+
+        self.view.list_box_doctors_for_assign.delete(0, END)
+        for doctor in self.doctors:
+            self.view.list_box_doctors_for_assign.insert(END, f"{doctor.first_name} {doctor.last_name} ({doctor.city})")
+
+        self.view.list_box_clinics_for_patient_assign.delete(0, END)
+        for clinic in self.clinics:
+            self.view.list_box_clinics_for_patient_assign.insert(END, clinic.name)
+
+        self.view.list_box_patients_of_clinic.delete(0, END)
+        clinic_selection = self.view.list_box_clinics.curselection()
+        if clinic_selection:
+            clinic = self.clinics[clinic_selection[0]]
+            for patient in clinic.patients:
+                self.view.list_box_patients_of_clinic.insert(END, f"{patient.first_name} {patient.last_name} ({patient.city})")
+
     def refresh_clients_lists(self):
         self.view.list_box_clients.delete(0, END)
         for client in self.clients:
@@ -633,7 +755,6 @@ class Controller:
             clinic = self.clinics[clinic_selection[0]]
             for client in clinic.clients:
                 self.view.list_box_clients_of_clinic.insert(END, f"{client.name} ({client.city})")
-
 
     def on_client_of_clinic_select(self, event):
         pass
@@ -834,22 +955,3 @@ class Controller:
 
         Button(dialog, text="Zmień przychodnię", command=change_clinic).pack(pady=5)
         Button(dialog, text="Usuń z przychodni", command=remove_from_clinic).pack(pady=5)
-
-    def refresh_clients_lists(self):
-        self.view.list_box_clients.delete(0, END)
-        for client in self.clients:
-            display_text = f"{client.name} ({client.city})"
-            if client.clinic:
-                display_text += f" - {client.clinic.name}"
-            self.view.list_box_clients.insert(END, display_text)
-
-        self.view.list_box_clinics_for_client_assign.delete(0, END)
-        for clinic in self.clinics:
-            self.view.list_box_clinics_for_client_assign.insert(END, clinic.name)
-
-        self.view.list_box_clients_of_clinic.delete(0, END)
-        clinic_selection = self.view.list_box_clinics.curselection()
-        if clinic_selection:
-            clinic = self.clinics[clinic_selection[0]]
-            for client in clinic.clients:
-                self.view.list_box_clients_of_clinic.insert(END, f"{client.name} ({client.city})")
